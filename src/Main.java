@@ -1,6 +1,7 @@
 import java.util.*;
 import java.io.*;
 import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
 
 public class Main {
     public static void main(String[] args) {
@@ -22,8 +23,8 @@ public class Main {
             if (command.equals("lines")) {
                 printLines(edits);
             } else {
-                // Part B will be implemented later.
-                printLines(edits);
+                // printLines(edits);
+                printHighlight(edits);
             }
         } catch (IOException e) {
             System.err.println("error: cannot read file");
@@ -153,6 +154,183 @@ public class Main {
             System.out.write(edit.type);
             System.out.write(edit.line,0,edit.line.length);
             System.out.write('\n');
+        }
+    }
+
+    // Part B
+    public static List<int[]> characterOperations(int[] a, int[] b) {
+        int n = a.length;
+        int m = b.length;
+        int max = n + m;
+        int offset = max + 1;
+        int[] v = new int[2 * max + 3];
+        v[offset + 1] = 0;
+        List<int[]> history = new ArrayList<>();
+        for (int d = 0; d <= max; d++) {
+            history.add(v.clone());
+            for (int k = -d; k <= d; k += 2) {
+                int index = offset + k;
+                int x;
+                if (k == -d || (k != d && v[index - 1] < v[index + 1])) {
+                    x = v[index + 1];
+                } else {
+                    x = v[index - 1] + 1;
+                }
+                int y = x - k;
+                while (x < n && y < m && a[x] == b[y]) {
+                    x++;
+                    y++;
+                }
+                v[index] = x;
+                if (x >= n && y >= m) {
+                    return buildCharacterOperations(a, b, history, d, offset);
+                }
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    public static List<int[]> buildCharacterOperations(int[] a, int[] b, List<int[]> history, int d, int offset) {
+        List<int[]> reversed = new ArrayList<>();
+        int x = a.length;
+        int y = b.length;
+        for (int currentD = d; currentD > 0; currentD--) {
+            int[] previousV = history.get(currentD);
+            int k = x - y;
+            int previousK;
+            if (k == -currentD || (k != currentD && previousV[offset + k - 1] < previousV[offset + k + 1])) {
+                previousK = k + 1;
+            } else {
+                previousK = k - 1;
+            }
+            int previousX = previousV[offset + previousK];
+            int previousY = previousX - previousK;
+            // Move backwards through matching characters.
+            while (x > previousX && y > previousY) {
+                x--;
+                y--;
+                reversed.add(new int[]{0});
+            }
+            // Insertion.
+            if (x == previousX) {
+                y--;
+                reversed.add(new int[]{2});
+            } else {
+                // Deletion.
+                x--;
+                reversed.add(new int[]{1});
+            }
+        }
+        // Remaining matching characters at the beginning.
+        while (x > 0 && y > 0) {
+            x--;
+            y--;
+            reversed.add(new int[]{0});
+        }
+        Collections.reverse(reversed);
+        return reversed;
+    }
+
+    public static String characterDiff(String oldText, String newText) {
+        int[] oldChars = oldText.codePoints().toArray();
+        int[] newChars = newText.codePoints().toArray();
+        List<int[]> operations = characterOperations(oldChars, newChars);
+        List<Integer> oldChanged = new ArrayList<>();
+        List<Integer> newChanged = new ArrayList<>();
+        int oldPosition = 0;
+        int newPosition = 0;
+        for (int[] operation : operations) {
+            int type = operation[0];
+            if (type == 0) {
+                // Character is unchanged.
+                oldPosition++;
+                newPosition++;
+            } else if (type == 1) {
+                // Character was deleted.
+                oldChanged.add(oldPosition);
+                oldPosition++;
+            } else {
+                // Character was inserted.
+                newChanged.add(newPosition);
+                newPosition++;
+            }
+        }
+        return makeRanges(oldChanged)+ " | " + makeRanges(newChanged);
+    }
+
+    public static String makeRanges(List<Integer> positions) {
+        if (positions.isEmpty()) {
+            return ".";
+        }
+        StringBuilder result = new StringBuilder();
+        int start = positions.get(0);
+        int previous = start;
+        for (int i = 1; i < positions.size(); i++) {
+            int current = positions.get(i);
+            if (current == previous + 1) {
+                previous = current;
+            } else {
+                appendRange(result, start, previous + 1);
+                start = current;
+                previous = current;
+            }
+        }
+        appendRange(result, start, previous + 1);
+        return result.toString();
+    }
+    public static void appendRange(StringBuilder result, int start, int end) {
+        if (result.length() > 0) {
+            result.append(',');
+        }
+        result.append(start);
+        result.append('-');
+        result.append(end);
+    }
+    public static void printHighlight(List<Edit> edits) {
+        int i = 0;
+        while (i < edits.size()) {
+            // Unchanged line.
+            if (edits.get(i).type == ' ') {
+                System.out.write(' ');
+                System.out.write(edits.get(i).line, 0, edits.get(i).line.length);
+                System.out.write('\n');
+                i++;
+                continue;
+            }
+            // Collect one complete change block.
+            List<byte[]> deletes = new ArrayList<>();
+            List<byte[]> inserts = new ArrayList<>();
+            while (i < edits.size() && edits.get(i).type != ' ') {
+                if (edits.get(i).type == '-') {
+                    deletes.add(edits.get(i).line);
+                } else {
+                    inserts.add(edits.get(i).line);
+                }
+                i++;
+            }
+            // Print deletions first.
+            for (byte[] line : deletes) {
+                System.out.write('-');
+                System.out.write(line, 0, line.length);
+                System.out.write('\n');
+            }
+            // Print insertions.
+            for (int j = 0; j < inserts.size(); j++) {
+                byte[] newLine = inserts.get(j);
+                System.out.write('+');
+                System.out.write(newLine, 0, newLine.length);
+                System.out.write('\n');
+                // Pair first deletion with first insertion,
+                // second deletion with second insertion, etc.
+                if (j < deletes.size()) {
+                    byte[] oldLine = deletes.get(j);
+                    String oldText = new String(oldLine, StandardCharsets.UTF_8);
+                    String newText = new String(newLine, StandardCharsets.UTF_8);
+                    String ranges = characterDiff(oldText, newText);
+                    byte[] question = ("? " + ranges + "\n").getBytes(StandardCharsets.UTF_8);
+                    System.out.write(question, 0, question.length);
+                }
+            }
         }
     }
 }
