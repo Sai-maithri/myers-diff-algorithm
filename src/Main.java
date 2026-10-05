@@ -61,9 +61,9 @@ public class Main {
         int offset = max + 1;
         int[] v = new int[2 * max + 3];
         v[offset + 1] = 0;
+        // Store only the active diagonals for each d.
         List<int[]> history = new ArrayList<>();
         for (int d = 0; d <= max; d++) {
-            history.add(v.clone());
             for (int k = -d; k <= d; k += 2) {
                 int index = offset + k;
                 int x;
@@ -73,32 +73,47 @@ public class Main {
                     x = v[index - 1] + 1;
                 }
                 int y = x - k;
+                // Snake: move through matching lines.
                 while (x < n && y < m && Arrays.equals(a.get(x), b.get(y))) {
                     x++;
                     y++;
                 }
                 v[index] = x;
                 if (x >= n && y >= m) {
-                    return buildEdits(a, b, history, d, offset);
+                    // Save only the active diagonals.
+                    int[] snapshot = new int[2 * d + 1];
+                    for (int snapshotK = -d; snapshotK <= d; snapshotK++) {
+                        snapshot[snapshotK + d] = v[offset + snapshotK];
+                    }
+                    history.add(snapshot);
+                    return buildEdits(a, b, history, d);
                 }
             }
+            // Save only the active diagonals for this d.
+            int[] snapshot = new int[2 * d + 1];
+            for (int snapshotK = -d; snapshotK <= d; snapshotK++) {
+                snapshot[snapshotK + d] = v[offset + snapshotK];
+            }
+            history.add(snapshot);
         }
         return new ArrayList<>();
     }
-    public static List<Edit> buildEdits(List<byte[]> a, List<byte[]> b, List<int[]> history, int d, int offset) {
+    public static List<Edit> buildEdits(List<byte[]> a, List<byte[]> b, List<int[]> history, int d) {
         List<Edit> reversed = new ArrayList<>();
         int x = a.size();
         int y = b.size();
         for (int currentD = d; currentD > 0; currentD--) {
-            int[] previousV = history.get(currentD);
+            // history contains the snapshot AFTER each d.
+            // We need the snapshot from d - 1.
+            int[] previousV = history.get(currentD - 1);
             int k = x - y;
             int previousK;
-            if (k == -currentD || (k != currentD && previousV[offset + k - 1] < previousV[offset + k + 1])) {
+            if (k == -currentD || (k != currentD && previousV[(k - 1) + (currentD - 1)] < previousV[(k + 1) + (currentD - 1)])) {
                 previousK = k + 1;
             } else {
                 previousK = k - 1;
             }
-            int previousX = previousV[offset + previousK];
+            int previousX = previousV[previousK + (currentD - 1)];
             int previousY = previousX - previousK;
             // Move backwards through the matching snake.
             while (x > previousX && y > previousY) {
@@ -106,17 +121,17 @@ public class Main {
                 y--;
                 reversed.add(new Edit(' ', a.get(x)));
             }
-            // Work out whether the previous edit was
-            // an insertion or a deletion.
+            // Previous edit was an insertion.
             if (x == previousX) {
                 y--;
                 reversed.add(new Edit('+', b.get(y)));
             } else {
+                // Previous edit was a deletion.
                 x--;
                 reversed.add(new Edit('-', a.get(x)));
             }
         }
-        // Any remaining matching lines at the beginning.
+        // Remaining matching lines at the beginning.
         while (x > 0 && y > 0) {
             x--;
             y--;
@@ -165,9 +180,9 @@ public class Main {
         int offset = max + 1;
         int[] v = new int[2 * max + 3];
         v[offset + 1] = 0;
+        // Store only the active diagonals for each d.
         List<int[]> history = new ArrayList<>();
         for (int d = 0; d <= max; d++) {
-            history.add(v.clone());
             for (int k = -d; k <= d; k += 2) {
                 int index = offset + k;
                 int x;
@@ -177,35 +192,46 @@ public class Main {
                     x = v[index - 1] + 1;
                 }
                 int y = x - k;
+                // Snake: move through matching code points.
                 while (x < n && y < m && a[x] == b[y]) {
                     x++;
                     y++;
                 }
                 v[index] = x;
                 if (x >= n && y >= m) {
-                    return buildCharacterOperations(a, b, history, d, offset);
+                    int[] snapshot = new int[2 * d + 1];
+                    for (int snapshotK = -d; snapshotK <= d; snapshotK++) {
+                        snapshot[snapshotK + d] = v[offset + snapshotK];
+                    }
+                    history.add(snapshot);
+                    return buildCharacterOperations(a, b, history,d);
                 }
             }
+            int[] snapshot = new int[2 * d + 1];
+            for (int snapshotK = -d; snapshotK <= d; snapshotK++) {
+                snapshot[snapshotK + d] = v[offset + snapshotK];
+            }
+            history.add(snapshot);
         }
         return new ArrayList<>();
     }
 
-    public static List<int[]> buildCharacterOperations(int[] a, int[] b, List<int[]> history, int d, int offset) {
+    public static List<int[]> buildCharacterOperations(int[] a, int[] b, List<int[]> history, int d) {
         List<int[]> reversed = new ArrayList<>();
         int x = a.length;
         int y = b.length;
         for (int currentD = d; currentD > 0; currentD--) {
-            int[] previousV = history.get(currentD);
+            int[] previousV = history.get(currentD - 1);
             int k = x - y;
             int previousK;
-            if (k == -currentD || (k != currentD && previousV[offset + k - 1] < previousV[offset + k + 1])) {
+            if (k == -currentD || (k != currentD && previousV[(k - 1) + (currentD - 1)] < previousV[(k + 1) + (currentD - 1)])) {
                 previousK = k + 1;
             } else {
                 previousK = k - 1;
             }
-            int previousX = previousV[offset + previousK];
+            int previousX = previousV[previousK + (currentD - 1)];
             int previousY = previousX - previousK;
-            // Move backwards through matching characters.
+            // Move backwards through matching code points.
             while (x > previousX && y > previousY) {
                 x--;
                 y--;
@@ -221,7 +247,7 @@ public class Main {
                 reversed.add(new int[]{1});
             }
         }
-        // Remaining matching characters at the beginning.
+        // Remaining matching code points at the beginning.
         while (x > 0 && y > 0) {
             x--;
             y--;
@@ -230,7 +256,7 @@ public class Main {
         Collections.reverse(reversed);
         return reversed;
     }
-
+    
     public static String characterDiff(String oldText, String newText) {
         int[] oldChars = oldText.codePoints().toArray();
         int[] newChars = newText.codePoints().toArray();
