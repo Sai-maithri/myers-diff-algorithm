@@ -54,6 +54,17 @@ public class Main {
         }
         return lines;
     }
+    public static boolean sameLine(byte[] a, byte[] b) {
+        if (a.length != b.length) {
+            return false;
+        }
+        for (int i = 0; i < a.length; i++) {
+            if (a[i] != b[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
     public static List<Edit> myersDiff(List<byte[]> a, List<byte[]> b) {
         int n = a.size();
         int m = b.size();
@@ -74,7 +85,7 @@ public class Main {
                 }
                 int y = x - k;
                 // Snake: move through matching lines.
-                while (x < n && y < m && Arrays.equals(a.get(x), b.get(y))) {
+                while (x < n && y < m && sameLine(a.get(x), b.get(y))) {
                     x++;
                     y++;
                 }
@@ -256,7 +267,7 @@ public class Main {
         Collections.reverse(reversed);
         return reversed;
     }
-    
+
     public static String characterDiff(String oldText, String newText) {
         int[] oldChars = oldText.codePoints().toArray();
         int[] newChars = newText.codePoints().toArray();
